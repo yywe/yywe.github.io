@@ -95,7 +95,6 @@ type ReplicaSetController struct {
 	// This is work queue. items in this queue will be processed one by one
 	queue workqueue.RateLimitingInterface
 }
-
 ```
 
 When the ReplicatSet controller is created, it will listen to Replicat Set and Pods Add/Update/Delete Events.
@@ -239,6 +238,7 @@ func (rsc *ReplicaSetController) manageReplicas(ctx context.Context, filteredPod
 ```
 
 Actual pods creation work is wrapped in `slowStartBatch`, there pods will be created batch by batch with different batch sizes. 
+
 ```go
         errCh := make(chan error, batchSize)
 		var wg sync.WaitGroup

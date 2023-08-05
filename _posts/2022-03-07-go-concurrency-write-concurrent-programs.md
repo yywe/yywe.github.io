@@ -40,7 +40,6 @@ func main() {
     value := <- resCh
     fmt.Printf("Received value from concurrent task: %d\n", value)
 }
-
 ```
 
 Let's run the above Go program:

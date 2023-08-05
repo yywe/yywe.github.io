@@ -7,6 +7,7 @@ tags: [linux, development environment]
 ---
 
 One of the major advatanage of developing server side applications in your local enviornment is that the terminal session never gets disconnected. The session is always available.
+
 ```bash
 ➜  yywe.github.io git:(master) ✗ ls
 Gemfile                     _javascript                 assets
@@ -17,10 +18,11 @@ _config.yml                 _sass                       note.txt
 _data                       _site                       package.json
 _includes                   _tabs                       tools
 ```
+
 However, in many companies, it is daily work to SSH into a server and do the development work, and it is annoying that you often see that your session session get disconnected.
 
-```console
-:client_loop: send disconnect: Broken pipe
+```bash
+client_loop: send disconnect: Broken pipe
 ```
 
 This may happen while you are having launch or due to network issue or other whatever reason. The consequence is that your onging work/process will be terminated due to this closed session. 
@@ -37,7 +39,7 @@ Let's make your remote SSH session like your local terminal session and never ge
 
 This is simple, vim ~/.screenrc and put below line:
 
-```console
+```bash
 termcapinfo xterm* ti@:te@
 ```
 

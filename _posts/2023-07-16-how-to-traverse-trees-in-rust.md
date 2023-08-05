@@ -11,16 +11,19 @@ Today learned some something new about Rust when trying to use Rust to traverse 
 Let's first look at the tree node definition:
 
 ```rust
+
 pub struct TreeNode<T> {
     value: T,
     left: Option<Box<TreeNode<T>>>,
     right: Option<Box<TreeNode<T>>>,
 }
+
 ```
 
 Here we can see we wrap the TreeNode inside a Box pointer. and outside the pointer we wrapped it in an Option, and we have a generic parameter T. Next, we can implment a utility function to create a leaf node as:
 
-```Rust
+```rust
+
 impl<T> TreeNode<T> {
     fn leaf(value: T) -> Option<Box<TreeNode<T>>> {
         Some(Box::new(Self {
@@ -36,6 +39,7 @@ With that, we can implement a basic inorder traverse function:
 
 
 ```rust
+
 impl<T> TreeNode<T> {
     pub fn traverse_inorder1(&self, f: &mut impl FnMut(&T)) {
         if let Some(left) = &self.left {
@@ -95,6 +99,7 @@ Now given one requirement, inorder traverse the binary tree and stop whenever hi
 Here the function signature changed to `pub fn traverse_inorder2<B>(&self, f: &mut impl FnMut(&T) -> ControlFlow<B>) -> ControlFlow<B> `, here we can the generic parameter B, which indicates the type to return when break (assume hit negative node), and the closure also return the `ControlFlow`, so as the whole function.
 
 The whole test code is below:
+
 ```rust
 use std::ops::ControlFlow;
 
