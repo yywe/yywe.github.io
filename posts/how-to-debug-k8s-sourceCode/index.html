@@ -1,0 +1,463 @@
+<!DOCTYPE html><html lang="en" data-mode="dark" ><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"><meta name="generator" content="Jekyll v4.2.1" /><meta property="og:title" content="How to Debug Kubernetes Source Code?" /><meta name="author" content="Hulua" /><meta property="og:locale" content="en" /><meta name="description" content="Reading the source code of kubernetes is a great way to learn the internals of kubernetes. In this post, we will explore how to use debugger (dlv) to track the source code execution flow." /><meta property="og:description" content="Reading the source code of kubernetes is a great way to learn the internals of kubernetes. In this post, we will explore how to use debugger (dlv) to track the source code execution flow." /><link rel="canonical" href="https://yywe.github.io/posts/how-to-debug-k8s-sourceCode/" /><meta property="og:url" content="https://yywe.github.io/posts/how-to-debug-k8s-sourceCode/" /><meta property="og:site_name" content="Hulua" /><meta property="og:type" content="article" /><meta property="article:published_time" content="2022-04-01T08:55:00-04:00" /><meta name="twitter:card" content="summary" /><meta property="twitter:title" content="How to Debug Kubernetes Source Code?" /><meta name="twitter:site" content="@Hulua" /><meta name="twitter:creator" content="@Hulua" /><meta name="google-site-verification" content="liMLPEFk1OeBj60sNB4ZWXljAWSaM_5PT6cFO3qH-kg" /> <script type="application/ld+json"> {"author":{"@type":"Person","name":"Hulua"},"description":"Reading the source code of kubernetes is a great way to learn the internals of kubernetes. In this post, we will explore how to use debugger (dlv) to track the source code execution flow.","headline":"How to Debug Kubernetes Source Code?","dateModified":"2022-04-01T08:55:00-04:00","url":"https://yywe.github.io/posts/how-to-debug-k8s-sourceCode/","datePublished":"2022-04-01T08:55:00-04:00","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://yywe.github.io/posts/how-to-debug-k8s-sourceCode/"},"@context":"https://schema.org"}</script><title>How to Debug Kubernetes Source Code? | Hulua</title><link rel="apple-touch-icon" sizes="180x180" href="/assets/img/favicons/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/img/favicons/favicon-32x32.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/img/favicons/favicon-16x16.png"><link rel="manifest" href="/assets/img/favicons/site.webmanifest"><link rel="shortcut icon" href="/assets/img/favicons/favicon.ico"><meta name="apple-mobile-web-app-title" content="Hulua"><meta name="application-name" content="Hulua"><meta name="msapplication-TileColor" content="#da532c"><meta name="msapplication-config" content="/assets/img/favicons/browserconfig.xml"><meta name="theme-color" content="#ffffff"><link rel="preconnect" href="https://fonts.googleapis.com" ><link rel="dns-prefetch" href="https://fonts.googleapis.com" ><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="dns-prefetch" href="https://fonts.gstatic.com" crossorigin><link rel="preconnect" href="https://fonts.googleapis.com" ><link rel="dns-prefetch" href="https://fonts.googleapis.com" ><link rel="preconnect" href="https://cdn.jsdelivr.net" ><link rel="dns-prefetch" href="https://cdn.jsdelivr.net" ><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato&family=Source+Sans+Pro:wght@400;600;700;900&display=swap"><link rel="preconnect" href="https://www.google-analytics.com" crossorigin="use-credentials"><link rel="dns-prefetch" href="https://www.google-analytics.com"><link rel="preconnect" href="https://www.googletagmanager.com" crossorigin="anonymous"><link rel="dns-prefetch" href="https://www.googletagmanager.com"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.11.2/css/all.min.css"><link rel="stylesheet" href="/assets/css/style.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/afeld/bootstrap-toc@1.0.1/dist/bootstrap-toc.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/magnific-popup@1/dist/magnific-popup.min.css"> <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script><body data-spy="scroll" data-target="#toc" data-topbar-visible="true"><div id="sidebar" class="d-flex flex-column align-items-end"><div class="profile-wrapper text-center"><div id="avatar"> <a href="/" alt="avatar" class="mx-auto"> <img src="/assets/img/favicons/favicon.ico" alt="avatar" onerror="this.style.display='none'"> </a></div><div class="site-title mt-3"> <a href="/">Hulua</a></div><div class="site-subtitle font-italic">Welcome to my home page</div></div><ul class="w-100"><li class="nav-item"> <a href="/" class="nav-link"> <i class="fa-fw fas fa-home ml-xl-3 mr-xl-3 unloaded"></i> <span>HOME</span> </a><li class="nav-item"> <a href="/categories/" class="nav-link"> <i class="fa-fw fas fa-stream ml-xl-3 mr-xl-3 unloaded"></i> <span>CATEGORIES</span> </a><li class="nav-item"> <a href="/tags/" class="nav-link"> <i class="fa-fw fas fa-tag ml-xl-3 mr-xl-3 unloaded"></i> <span>TAGS</span> </a><li class="nav-item"> <a href="/archives/" class="nav-link"> <i class="fa-fw fas fa-archive ml-xl-3 mr-xl-3 unloaded"></i> <span>ARCHIVES</span> </a><li class="nav-item"> <a href="/about/" class="nav-link"> <i class="fa-fw fas fa-info-circle ml-xl-3 mr-xl-3 unloaded"></i> <span>ABOUT</span> </a></ul><div class="sidebar-bottom mt-auto d-flex flex-wrap justify-content-center align-items-center"> <a href="https://github.com/yywe" aria-label="github" target="_blank" rel="noopener"> <i class="fab fa-github"></i> </a> <a href="https://twitter.com/Hulua" aria-label="twitter" target="_blank" rel="noopener"> <i class="fab fa-twitter"></i> </a> <a href=" javascript:location.href = 'mailto:' + ['stweiyy','gmail.com'].join('@')" aria-label="email" > <i class="fas fa-envelope"></i> </a> <a href="/feed.xml" aria-label="rss" > <i class="fas fa-rss"></i> </a></div></div><div id="topbar-wrapper" class="row justify-content-center"><div id="topbar" class="col-11 d-flex h-100 align-items-center justify-content-between"> <span id="breadcrumb"> <span> <a href="/"> Home </a> </span> <span>How to Debug Kubernetes Source Code?</span> </span> <i id="sidebar-trigger" class="fas fa-bars fa-fw"></i><div id="topbar-title"> Post</div><i id="search-trigger" class="fas fa-search fa-fw"></i> <span id="search-wrapper" class="align-items-center"> <i class="fas fa-search fa-fw"></i> <input class="form-control" id="search-input" type="search" aria-label="search" autocomplete="off" placeholder="Search..."> </span> <span id="search-cancel" >Cancel</span></div></div><div id="main-wrapper"><div id="main"><div class="row"><div id="core-wrapper" class="col-12 col-lg-11 col-xl-8"><div class="post pl-1 pr-1 pl-sm-2 pr-sm-2 pl-md-4 pr-md-4"><h1 data-toc-skip>How to Debug Kubernetes Source Code?</h1><div class="post-meta text-muted"><div> By <em> Hulua </em></div><div class="d-flex"><div> <span> Posted <em class="timeago" data-ts="1648817700" data-toggle="tooltip" data-placement="bottom" data-tooltip-df="llll" > 2022-04-01 </em> </span> <span class="readtime" data-toggle="tooltip" data-placement="bottom" title="2236 words"> <em>12 min</em> read</span> <span> read by <em id="mypv" class="pageviews"> <i class="fas fa-spinner fa-spin fa-fw"></i> </em> visitor </span> <span><i class="far fa-thumbs-up fa-fw" id="thumbsupbtn" ></i> <span><em id="postshowtodebugk8ssourcecode" class="num_of_likes"></em></span> </span></div></div></div><div class="post-content"><p>Reading the source code of kubernetes is a great way to learn the internals of kubernetes. In this post, we will explore how to use debugger (dlv) to track the source code execution flow.</p><h1 id="prerequisite">Prerequisite</h1><p>To setup a debug environment, there are a few prerequisites.</p><ol><li>Linux system.<li>A copy of Kubernetes source code (of course).<li>Learn how to use dlv.</ol><p>The very first step is to ensure you are able to run a local single node k8s cluster. With help from the community, this has been simplified. Detailed steps to run a local k8s cluster is documented at https://github.com/kubernetes/community/blob/master/contributors/devel/running-locally.md.</p><p>Before reading the rest of this post, please go through the steps described in the link and make a running local k8s cluster (even if not for debugging the source, learn this process is helpful to quickly start a k8s cluster for other test purpose. You do not have to install minikube to start a local cluster…).</p><p>If things work out as expected, try execute:</p><div class="language-console highlighter-rouge"><div class="code-header"> <span data-label-text="Console"><i class="fas fa-code small"></i></span> <button aria-label="copy" data-title-succeed="Copied!"><i class="far fa-clipboard"></i></button></div><div class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre><td class="rouge-code"><pre><span class="gp">sudo env "PATH=$</span>PATH<span class="s2">" hack/local-up-cluster.sh -O
+</span></pre></table></code></div></div><p>Here I have <code class="language-plaintext highlighter-rouge">env "PATH=$PATH"</code> because I installed etcd under my home directory, so I reserved the path environment such that etcd can be found under <code class="language-plaintext highlighter-rouge">sudo</code>. This is not nessesary if you have etcd installed under system binary path. Another thing here is <code class="language-plaintext highlighter-rouge">-O</code> since I already compiled the source code. This is documented in the link above. You will be able to see something like:</p><div class="language-console highlighter-rouge"><div class="code-header"> <span data-label-text="Console"><i class="fas fa-code small"></i></span> <button aria-label="copy" data-title-succeed="Copied!"><i class="far fa-clipboard"></i></button></div><div class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+</pre><td class="rouge-code"><pre><span class="go">To start using your cluster, you can open up another terminal/tab and run:
+
+  export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig
+  cluster/kubectl.sh
+
+Alternatively, you can write to the default kubeconfig:
+
+  export KUBERNETES_PROVIDER=local
+
+  cluster/kubectl.sh config set-cluster local --server=https://localhost:6443 --certificate-authority=/var/run/kubernetes/server-ca.crt
+  cluster/kubectl.sh config set-credentials myself --client-key=/var/run/kubernetes/client-admin.key --client-certificate=/var/run/kubernetes/client-admin.crt
+  cluster/kubectl.sh config set-context local --cluster=local --user=myself
+  cluster/kubectl.sh config use-context local
+  cluster/kubectl.sh
+</span></pre></table></code></div></div><p>Great! Now you are able to start a local k8s cluster from source code! (please also set the kubeconfig as prompted, <code class="language-plaintext highlighter-rouge">export KUBECONFIG=/var/run/kubernetes/admin.kubeconfig</code>). Now let’s first look at what is happenning under the hood.</p><div class="language-console highlighter-rouge"><div class="code-header"> <span data-label-text="Console"><i class="fas fa-code small"></i></span> <button aria-label="copy" data-title-succeed="Copied!"><i class="far fa-clipboard"></i></button></div><div class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+</pre><td class="rouge-code"><pre><span class="go">ps -ef|grep kube
+
+</span><span class="gp">root      3731  3213 16 15:20 pts/6    00:00:21 ~/kubernetes/_output/bin/kube-apiserver --authorization-mode=Node,RBAC  --cloud-provider= --cloud-config=   --v=3 --vmodule= --audit-policy-file=/tmp/kube-audit-policy-file --audit-log-path=/tmp/kube-apiserver-audit.log --authorization-webhook-config-file= --authentication-token-webhook-config-file= --cert-dir=/var/run/kubernetes --egress-selector-config-file=/tmp/kube_egress_selector_configuration.yaml --client-ca-file=/var/run/kubernetes/client-ca.crt --kubelet-client-certificate=/var/run/kubernetes/client-kube-apiserver.crt --kubelet-client-key=/var/run/kubernetes/client-kube-apiserver.key --service-account-key-file=/tmp/kube-serviceaccount.key --service-account-lookup=true --service-account-issuer=https://kubernetes.default.svc --service-account-jwks-uri=https://kubernetes.default.svc/openid/v1/jwks --service-account-signing-key-file=/tmp/kube-serviceaccount.key --enable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,Priority,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota --disable-admission-plugins= --admission-control-config-file= --bind-address=0.0.0.0 --secure-port=6443 --tls-cert-file=/var/run/kubernetes/serving-kube-apiserver.crt --tls-private-key-file=/var/run/kubernetes/serving-kube-apiserver.key --storage-backend=etcd3 --storage-media-type=application/vnd.kubernetes.protobuf --etcd-servers=http://127.0.0.1:2379 --service-cluster-ip-range=10.0.0.0/24 --feature-gates=AllAlpha=false --external-hostname=localhost --requestheader-username-headers=X-Remote-User --requestheader-group-headers=X-Remote-Group --requestheader-extra-headers-prefix=X-Remote-Extra- --requestheader-client-ca-file=/var/run/kubernetes/request-header-ca.crt --requestheader-allowed-names=system:auth-proxy --proxy-client-cert-file=/var/run/kubernetes/client-auth-proxy.crt --proxy-client-key-file=/var/run/kubernetes/client-auth-proxy.key --cors-allowed-origins=/127.0.0.1(:[0-9]+)?$</span>,/localhost<span class="o">(</span>:[0-9]+<span class="o">)</span>?<span class="err">$</span>
+<span class="go">
+
+root      4197  3213  3 15:20 pts/6    00:00:04 ~/kubernetes/_output/bin/kube-controller-manager --v=3 --vmodule= --service-account-private-key-file=/tmp/kube-serviceaccount.key --service-cluster-ip-range=10.0.0.0/24 --root-ca-file=/var/run/kubernetes/server-ca.crt --cluster-signing-cert-file=/var/run/kubernetes/client-ca.crt --cluster-signing-key-file=/var/run/kubernetes/client-ca.key --enable-hostpath-provisioner=false --pvclaimbinder-sync-period=15s --feature-gates=AllAlpha=false --cloud-provider= --cloud-config= --configure-cloud-routes=true --authentication-kubeconfig /var/run/kubernetes/controller.kubeconfig --authorization-kubeconfig /var/run/kubernetes/controller.kubeconfig --kubeconfig /var/run/kubernetes/controller.kubeconfig --use-service-account-credentials --controllers=* --leader-elect=false --cert-dir=/var/run/kubernetes --master=https://localhost:6443
+
+root      4200  3213  1 15:20 pts/6    00:00:01 ~/kubernetes/_output/bin/kube-scheduler --v=3 --config=/tmp/kube-scheduler.yaml --feature-gates=AllAlpha=false --authentication-kubeconfig /var/run/kubernetes/scheduler.kubeconfig --authorization-kubeconfig /var/run/kubernetes/scheduler.kubeconfig --master=https://localhost:6443
+
+root      4487  3213  0 15:20 pts/6    00:00:00 sudo -E ~/kubernetes/_output/bin/kubelet --v=3 --vmodule= --container-runtime=docker --hostname-override=127.0.0.1 --cloud-provider= --cloud-config= --bootstrap-kubeconfig=/var/run/kubernetes/kubelet.kubeconfig --kubeconfig=/var/run/kubernetes/kubelet-rotated.kubeconfig --config=/tmp/kubelet.yaml
+
+
+root      4492  4487  7 15:20 pts/6    00:00:09 ~/kubernetes/_output/bin/kubelet --v=3 --vmodule= --container-runtime=docker --hostname-override=127.0.0.1 --cloud-provider= --cloud-config= --bootstrap-kubeconfig=/var/run/kubernetes/kubelet.kubeconfig --kubeconfig=/var/run/kubernetes/kubelet-rotated.kubeconfig --config=/tmp/kubelet.yaml
+
+root      6203  3213  0 15:20 pts/6    00:00:00 sudo ~/kubernetes/_output/bin/kube-proxy --v=3 --config=/tmp/kube-proxy.yaml --master=https://localhost:6443
+root      6550  6203  0 15:20 pts/6    00:00:00 ~/kubernetes/_output/bin/kube-proxy --v=3 --config=/tmp/kube-proxy.yaml --master=https://localhost:6443
+
+
+</span></pre></table></code></div></div><p>These processess are the components of a k8s cluster. Namely, we have the apiserver, controller manager, scheduler, kubelet and proxy. Note that here for kubelet and proxy, we have two processes for each. I guess this is to simulate the case in worker node, we only run kubelet and proxy, and the other pair is assumed to be in master node.</p><h1 id="debug-kubelet">Debug kubelet</h1><h2 id="1-launch-process"><span class="mr-2">1. Launch Process</span><a href="#1-launch-process" class="anchor text-muted"><i class="fas fa-hashtag"></i></a></h2></h2><p>To debug kubelet, we will first compile a copy of the kubelet with debug infomation. This can be done by <code class="language-plaintext highlighter-rouge">make GOLDFLAGS="" WHAT="cmd/kubelet"</code>.</p><p>Now we kill the process “sudo -E ~/kubernetes/_output/bin/kubelet….”. For the above example, we <code class="language-plaintext highlighter-rouge">sudo kill 4487</code>. After that, we restart the process using dlv:</p><div class="language-console highlighter-rouge"><div class="code-header"> <span data-label-text="Console"><i class="fas fa-code small"></i></span> <button aria-label="copy" data-title-succeed="Copied!"><i class="far fa-clipboard"></i></button></div><div class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre><td class="rouge-code"><pre><span class="go">
+</span><span class="gp">sudo env "PATH=$</span>PATH<span class="s2">" dlv exec ~/kubernetes/_output/bin/kubelet -- --v=3 --vmodule= --container-runtime=docker --hostname-override=127.0.0.1 --cloud-provider= --cloud-config= --bootstrap-kubeconfig=/var/run/kubernetes/kubelet.kubeconfig --kubeconfig=/var/run/kubernetes/kubelet-rotated.kubeconfig --config=/tmp/kubelet.yaml
+</span><span class="go">
+Type 'help' for list of commands.
+(dlv)
+</span></pre></table></code></div></div><p>We simply copy the original starting parameters and add prefix <code class="language-plaintext highlighter-rouge">sudo env "PATH=$PATH" dlv exec</code>, as such, it will use <code class="language-plaintext highlighter-rouge">dlv</code> to start the process. Be very careful with the format when using dlv to pass parameters with <code class="language-plaintext highlighter-rouge">--</code>.</p><p>Now we can set a break point at <code class="language-plaintext highlighter-rouge">main.main</code>, and debug like any other programs using dlv:</p><div class="language-console highlighter-rouge"><div class="code-header"> <span data-label-text="Console"><i class="fas fa-code small"></i></span> <button aria-label="copy" data-title-succeed="Copied!"><i class="far fa-clipboard"></i></button></div><div class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+</pre><td class="rouge-code"><pre><span class="go">(dlv) b main.main
+Breakpoint 1 set at 0x3766166 for main.main() _output/local/go/src/k8s.io/kubernetes/cmd/kubelet/kubelet.go:39
+(dlv) c
+2022-03-31T22:47:20-05:00 error layer=debugger error loading binary "/lib/x86_64-linux-gnu/libpthread.so.0": could not parse .eh_frame section: unknown CIE_id 0x9daad7e4 at 0x0
+</span><span class="gp">&gt;</span><span class="w"> </span>main.main<span class="o">()</span> _output/local/go/src/k8s.io/kubernetes/cmd/kubelet/kubelet.go:39 <span class="o">(</span>hits goroutine<span class="o">(</span>1<span class="o">)</span>:1 total:1<span class="o">)</span> <span class="o">(</span>PC: 0x3766166<span class="o">)</span>
+<span class="go">Warning: debugging optimized function
+    34:         _ "k8s.io/component-base/metrics/prometheus/restclient"
+    35:         _ "k8s.io/component-base/metrics/prometheus/version" // for version metric registration
+    36:         "k8s.io/kubernetes/cmd/kubelet/app"
+    37: )
+    38:
+</span><span class="gp">=&gt;</span><span class="w">  </span>39: func main<span class="o">()</span> <span class="o">{</span>
+<span class="go">    40:         command := app.NewKubeletCommand()
+    41:
+    42:         // kubelet uses a config file and does its own special
+    43:         // parsing of flags and that config file. It initializes
+    44:         // logging after it is done with that. Therefore it does
+(dlv)
+</span></pre></table></code></div></div><p>One thing to note, please do every command at the source code direcotry to avoid any source code loading issues.</p><p>Bascially, all the commands for k8s using Cobra command. For kubelet, the eventual entry point is located at <code class="language-plaintext highlighter-rouge">app.Run</code>, we can set another break point and go there:</p><div class="language-console highlighter-rouge"><div class="code-header"> <span data-label-text="Console"><i class="fas fa-code small"></i></span> <button aria-label="copy" data-title-succeed="Copied!"><i class="far fa-clipboard"></i></button></div><div class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+</pre><td class="rouge-code"><pre><span class="go">
+(dlv) b app.Run
+Breakpoint 2 set at 0x375f292 for k8s.io/kubernetes/cmd/kubelet/app.Run() ./_output/local/go/src/k8s.io/kubernetes/cmd/kubelet/app/server.go:444
+(dlv) c
+Flag --cloud-provider has been deprecated, will be removed in 1.23, in favor of removing cloud provider code from Kubelet.
+Flag --cloud-config has been deprecated, will be removed in 1.23, in favor of removing cloud provider code from Kubelet.
+Flag --cloud-provider has been deprecated, will be removed in 1.23, in favor of removing cloud provider code from Kubelet.
+Flag --cloud-config has been deprecated, will be removed in 1.23, in favor of removing cloud provider code from Kubelet.
+I0331 23:08:16.519486   26991 mount_linux.go:222] Detected OS with systemd
+</span><span class="gp">&gt;</span><span class="w"> </span>k8s.io/kubernetes/cmd/kubelet/app.Run<span class="o">()</span> ./_output/local/go/src/k8s.io/kubernetes/cmd/kubelet/app/server.go:444 <span class="o">(</span>hits goroutine<span class="o">(</span>1<span class="o">)</span>:1 total:1<span class="o">)</span> <span class="o">(</span>PC: 0x375f292<span class="o">)</span>
+<span class="go">Warning: debugging optimized function
+   439:
+   440: // Run runs the specified KubeletServer with the given Dependencies. This should never exit.
+   441: // The kubeDeps argument may be nil - if so, it is initialized from the settings on KubeletServer.
+   442: // Otherwise, the caller is assumed to have set up the Dependencies object and a default one will
+   443: // not be generated.
+</span><span class="gp">=&gt;</span><span class="w"> </span>444: func Run<span class="o">(</span>ctx context.Context, s <span class="k">*</span>options.KubeletServer, kubeDeps <span class="k">*</span>kubelet.Dependencies, featureGate featuregate.FeatureGate<span class="o">)</span> error <span class="o">{</span>
+<span class="go">   445:         // To help debugging, immediately log version
+   446:         klog.InfoS("Kubelet version", "kubeletVersion", version.Get())
+</span><span class="gp">   447:         if err := initForOS(s.KubeletFlags.WindowsService, s.KubeletFlags.WindowsPriorityClass);</span><span class="w"> </span>err <span class="o">!=</span> nil <span class="o">{</span>
+<span class="go">   448:                 return fmt.Errorf("failed OS init: %w", err)
+   449:         }
+</span></pre></table></code></div></div><p>Up to this point, you can go ahead step by step and see how kubelet is started. If you track all the way down, you will reach <code class="language-plaintext highlighter-rouge">startKubelet</code>:</p><div class="language-console highlighter-rouge"><div class="code-header"> <span data-label-text="Console"><i class="fas fa-code small"></i></span> <button aria-label="copy" data-title-succeed="Copied!"><i class="far fa-clipboard"></i></button></div><div class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+</pre><td class="rouge-code"><pre><span class="go">
+(dlv) list
+</span><span class="gp">&gt;</span><span class="w"> </span>k8s.io/kubernetes/cmd/kubelet/app.RunKubelet<span class="o">()</span> ./_output/local/go/src/k8s.io/kubernetes/cmd/kubelet/app/server.go:1230 <span class="o">(</span>PC: 0x3764ac2<span class="o">)</span>
+<span class="go">Warning: debugging optimized function
+</span><span class="gp">  1225:                 if _, err := k.RunOnce(podCfg.Updates());</span><span class="w"> </span>err <span class="o">!=</span> nil <span class="o">{</span>
+<span class="go">  1226:                         return fmt.Errorf("runonce failed: %w", err)
+  1227:                 }
+  1228:                 klog.InfoS("Started kubelet as runonce")
+  1229:         } else {
+</span><span class="gp">=&gt;</span>1230:                 startKubelet<span class="o">(</span>k, podCfg, &amp;kubeServer.KubeletConfiguration, kubeDeps, kubeServer.EnableServer<span class="o">)</span>
+<span class="go">  1231:                 klog.InfoS("Started kubelet")
+  1232:         }
+  1233:         return nil
+</span></pre></table></code></div></div><p>The function <code class="language-plaintext highlighter-rouge">startKubelet</code> is the final starting point. After line <code class="language-plaintext highlighter-rouge">1230</code>, kubelet will be started and working. We can take a look at this entry function:</p><div class="language-go highlighter-rouge"><div class="code-header"> <span data-label-text="Go"><i class="fas fa-code small"></i></span> <button aria-label="copy" data-title-succeed="Copied!"><i class="far fa-clipboard"></i></button></div><div class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+</pre><td class="rouge-code"><pre><span class="k">func</span> <span class="n">startKubelet</span><span class="p">(</span><span class="n">k</span> <span class="n">kubelet</span><span class="o">.</span><span class="n">Bootstrap</span><span class="p">,</span> <span class="n">podCfg</span> <span class="o">*</span><span class="n">config</span><span class="o">.</span><span class="n">PodConfig</span><span class="p">,</span> <span class="n">kubeCfg</span> <span class="o">*</span><span class="n">kubeletconfiginternal</span><span class="o">.</span><span class="n">KubeletConfiguration</span><span class="p">,</span> <span class="n">kubeDeps</span> <span class="o">*</span><span class="n">kubelet</span><span class="o">.</span><span class="n">Dependencies</span><span class="p">,</span> <span class="n">enableServer</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">{</span>
+	<span class="c">// start the kubelet, actual work is done here</span>
+	<span class="k">go</span> <span class="n">k</span><span class="o">.</span><span class="n">Run</span><span class="p">(</span><span class="n">podCfg</span><span class="o">.</span><span class="n">Updates</span><span class="p">())</span>
+
+	<span class="c">// start the kubelet server, for HTTP purpose</span>
+	<span class="k">if</span> <span class="n">enableServer</span> <span class="p">{</span>
+		<span class="k">go</span> <span class="n">k</span><span class="o">.</span><span class="n">ListenAndServe</span><span class="p">(</span><span class="n">kubeCfg</span><span class="p">,</span> <span class="n">kubeDeps</span><span class="o">.</span><span class="n">TLSOptions</span><span class="p">,</span> <span class="n">kubeDeps</span><span class="o">.</span><span class="n">Auth</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="n">kubeCfg</span><span class="o">.</span><span class="n">ReadOnlyPort</span> <span class="o">&gt;</span> <span class="m">0</span> <span class="p">{</span>
+		<span class="k">go</span> <span class="n">k</span><span class="o">.</span><span class="n">ListenAndServeReadOnly</span><span class="p">(</span><span class="n">netutils</span><span class="o">.</span><span class="n">ParseIPSloppy</span><span class="p">(</span><span class="n">kubeCfg</span><span class="o">.</span><span class="n">Address</span><span class="p">),</span> <span class="kt">uint</span><span class="p">(</span><span class="n">kubeCfg</span><span class="o">.</span><span class="n">ReadOnlyPort</span><span class="p">))</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="n">utilfeature</span><span class="o">.</span><span class="n">DefaultFeatureGate</span><span class="o">.</span><span class="n">Enabled</span><span class="p">(</span><span class="n">features</span><span class="o">.</span><span class="n">KubeletPodResources</span><span class="p">)</span> <span class="p">{</span>
+		<span class="k">go</span> <span class="n">k</span><span class="o">.</span><span class="n">ListenAndServePodResources</span><span class="p">()</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+
+</pre></table></code></div></div><p>Here <code class="language-plaintext highlighter-rouge">k</code> is actually the <code class="language-plaintext highlighter-rouge">Kubelet</code> object returned by <code class="language-plaintext highlighter-rouge">createAndInitKubelet</code>, which is a struct contains many components, and <code class="language-plaintext highlighter-rouge">kubeCfg</code> is the configuration, and <code class="language-plaintext highlighter-rouge">kubeDeps</code> is the dependencies (sounds like a runtime context for kubelet). All the work until this point is just to prepare the runtime context.</p><p>In <code class="language-plaintext highlighter-rouge">startKubelet</code>, the runtime context is ready, so we can eventually make kubelet running. The main function called is <code class="language-plaintext highlighter-rouge">k.Run</code>, here it will start each individual compoent such as volume manager, pod lifecycle event generator, etc. Eventually, it goes to a <code class="language-plaintext highlighter-rouge">syncLoop</code>, which will start to watch the API server and process pod life cycle events.</p><div class="language-go highlighter-rouge"><div class="code-header"> <span data-label-text="Go"><i class="fas fa-code small"></i></span> <button aria-label="copy" data-title-succeed="Copied!"><i class="far fa-clipboard"></i></button></div><div class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+</pre><td class="rouge-code"><pre>
+<span class="c">// Run starts the kubelet reacting to config updates</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">kl</span> <span class="o">*</span><span class="n">Kubelet</span><span class="p">)</span> <span class="n">Run</span><span class="p">(</span><span class="n">updates</span> <span class="o">&lt;-</span><span class="k">chan</span> <span class="n">kubetypes</span><span class="o">.</span><span class="n">PodUpdate</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">if</span> <span class="n">kl</span><span class="o">.</span><span class="n">logServer</span> <span class="o">==</span> <span class="no">nil</span> <span class="p">{</span>
+		<span class="n">kl</span><span class="o">.</span><span class="n">logServer</span> <span class="o">=</span> <span class="n">http</span><span class="o">.</span><span class="n">StripPrefix</span><span class="p">(</span><span class="s">"/logs/"</span><span class="p">,</span> <span class="n">http</span><span class="o">.</span><span class="n">FileServer</span><span class="p">(</span><span class="n">http</span><span class="o">.</span><span class="n">Dir</span><span class="p">(</span><span class="s">"/var/log/"</span><span class="p">)))</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="n">kl</span><span class="o">.</span><span class="n">kubeClient</span> <span class="o">==</span> <span class="no">nil</span> <span class="p">{</span>
+		<span class="n">klog</span><span class="o">.</span><span class="n">InfoS</span><span class="p">(</span><span class="s">"No API server defined - no node status update will be sent"</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="c">// Start the cloud provider sync manager</span>
+	<span class="k">if</span> <span class="n">kl</span><span class="o">.</span><span class="n">cloudResourceSyncManager</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+		<span class="k">go</span> <span class="n">kl</span><span class="o">.</span><span class="n">cloudResourceSyncManager</span><span class="o">.</span><span class="n">Run</span><span class="p">(</span><span class="n">wait</span><span class="o">.</span><span class="n">NeverStop</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">kl</span><span class="o">.</span><span class="n">initializeModules</span><span class="p">();</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+		<span class="n">kl</span><span class="o">.</span><span class="n">recorder</span><span class="o">.</span><span class="n">Eventf</span><span class="p">(</span><span class="n">kl</span><span class="o">.</span><span class="n">nodeRef</span><span class="p">,</span> <span class="n">v1</span><span class="o">.</span><span class="n">EventTypeWarning</span><span class="p">,</span> <span class="n">events</span><span class="o">.</span><span class="n">KubeletSetupFailed</span><span class="p">,</span> <span class="n">err</span><span class="o">.</span><span class="n">Error</span><span class="p">())</span>
+		<span class="n">klog</span><span class="o">.</span><span class="n">ErrorS</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="s">"Failed to initialize internal modules"</span><span class="p">)</span>
+		<span class="n">os</span><span class="o">.</span><span class="n">Exit</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="c">// Start volume manager</span>
+	<span class="k">go</span> <span class="n">kl</span><span class="o">.</span><span class="n">volumeManager</span><span class="o">.</span><span class="n">Run</span><span class="p">(</span><span class="n">kl</span><span class="o">.</span><span class="n">sourcesReady</span><span class="p">,</span> <span class="n">wait</span><span class="o">.</span><span class="n">NeverStop</span><span class="p">)</span>
+
+	<span class="k">if</span> <span class="n">kl</span><span class="o">.</span><span class="n">kubeClient</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+		<span class="c">// Introduce some small jittering to ensure that over time the requests won't start</span>
+		<span class="c">// accumulating at approximately the same time from the set of nodes due to priority and</span>
+		<span class="c">// fairness effect.</span>
+		<span class="k">go</span> <span class="n">wait</span><span class="o">.</span><span class="n">JitterUntil</span><span class="p">(</span><span class="n">kl</span><span class="o">.</span><span class="n">syncNodeStatus</span><span class="p">,</span> <span class="n">kl</span><span class="o">.</span><span class="n">nodeStatusUpdateFrequency</span><span class="p">,</span> <span class="m">0.04</span><span class="p">,</span> <span class="no">true</span><span class="p">,</span> <span class="n">wait</span><span class="o">.</span><span class="n">NeverStop</span><span class="p">)</span>
+		<span class="k">go</span> <span class="n">kl</span><span class="o">.</span><span class="n">fastStatusUpdateOnce</span><span class="p">()</span>
+
+		<span class="c">// start syncing lease</span>
+		<span class="k">go</span> <span class="n">kl</span><span class="o">.</span><span class="n">nodeLeaseController</span><span class="o">.</span><span class="n">Run</span><span class="p">(</span><span class="n">wait</span><span class="o">.</span><span class="n">NeverStop</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">go</span> <span class="n">wait</span><span class="o">.</span><span class="n">Until</span><span class="p">(</span><span class="n">kl</span><span class="o">.</span><span class="n">updateRuntimeUp</span><span class="p">,</span> <span class="m">5</span><span class="o">*</span><span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">,</span> <span class="n">wait</span><span class="o">.</span><span class="n">NeverStop</span><span class="p">)</span>
+
+	<span class="c">// Set up iptables util rules</span>
+	<span class="k">if</span> <span class="n">kl</span><span class="o">.</span><span class="n">makeIPTablesUtilChains</span> <span class="p">{</span>
+		<span class="n">kl</span><span class="o">.</span><span class="n">initNetworkUtil</span><span class="p">()</span>
+	<span class="p">}</span>
+
+	<span class="c">// Start component sync loops.</span>
+	<span class="n">kl</span><span class="o">.</span><span class="n">statusManager</span><span class="o">.</span><span class="n">Start</span><span class="p">()</span>
+
+	<span class="c">// Start syncing RuntimeClasses if enabled.</span>
+	<span class="k">if</span> <span class="n">kl</span><span class="o">.</span><span class="n">runtimeClassManager</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+		<span class="n">kl</span><span class="o">.</span><span class="n">runtimeClassManager</span><span class="o">.</span><span class="n">Start</span><span class="p">(</span><span class="n">wait</span><span class="o">.</span><span class="n">NeverStop</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="c">// Start the pod lifecycle event generator.</span>
+	<span class="n">kl</span><span class="o">.</span><span class="n">pleg</span><span class="o">.</span><span class="n">Start</span><span class="p">()</span>
+	<span class="n">kl</span><span class="o">.</span><span class="n">syncLoop</span><span class="p">(</span><span class="n">updates</span><span class="p">,</span> <span class="n">kl</span><span class="p">)</span>
+<span class="p">}</span>
+
+</pre></table></code></div></div><p>Now let’s take a look at <code class="language-plaintext highlighter-rouge">syncLoop</code>.</p><div class="language-go highlighter-rouge"><div class="code-header"> <span data-label-text="Go"><i class="fas fa-code small"></i></span> <button aria-label="copy" data-title-succeed="Copied!"><i class="far fa-clipboard"></i></button></div><div class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+</pre><td class="rouge-code"><pre>
+<span class="c">// syncLoop is the main loop for processing changes. It watches for changes from</span>
+<span class="c">// three channels (file, apiserver, and http) and creates a union of them. For</span>
+<span class="c">// any new change seen, will run a sync against desired state and running state. If</span>
+<span class="c">// no changes are seen to the configuration, will synchronize the last known desired</span>
+<span class="c">// state every sync-frequency seconds. Never returns.</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">kl</span> <span class="o">*</span><span class="n">Kubelet</span><span class="p">)</span> <span class="n">syncLoop</span><span class="p">(</span><span class="n">updates</span> <span class="o">&lt;-</span><span class="k">chan</span> <span class="n">kubetypes</span><span class="o">.</span><span class="n">PodUpdate</span><span class="p">,</span> <span class="n">handler</span> <span class="n">SyncHandler</span><span class="p">)</span> <span class="p">{</span>
+	<span class="n">klog</span><span class="o">.</span><span class="n">InfoS</span><span class="p">(</span><span class="s">"Starting kubelet main sync loop"</span><span class="p">)</span>
+	<span class="c">// The syncTicker wakes up kubelet to checks if there are any pod workers</span>
+	<span class="c">// that need to be sync'd. A one-second period is sufficient because the</span>
+	<span class="c">// sync interval is defaulted to 10s.</span>
+	<span class="n">syncTicker</span> <span class="o">:=</span> <span class="n">time</span><span class="o">.</span><span class="n">NewTicker</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">)</span>
+	<span class="k">defer</span> <span class="n">syncTicker</span><span class="o">.</span><span class="n">Stop</span><span class="p">()</span>
+	<span class="n">housekeepingTicker</span> <span class="o">:=</span> <span class="n">time</span><span class="o">.</span><span class="n">NewTicker</span><span class="p">(</span><span class="n">housekeepingPeriod</span><span class="p">)</span>
+	<span class="k">defer</span> <span class="n">housekeepingTicker</span><span class="o">.</span><span class="n">Stop</span><span class="p">()</span>
+	<span class="n">plegCh</span> <span class="o">:=</span> <span class="n">kl</span><span class="o">.</span><span class="n">pleg</span><span class="o">.</span><span class="n">Watch</span><span class="p">()</span> <span class="c">//The channel to watch POD life cycle events</span>
+	<span class="k">const</span> <span class="p">(</span>
+		<span class="n">base</span>   <span class="o">=</span> <span class="m">100</span> <span class="o">*</span> <span class="n">time</span><span class="o">.</span><span class="n">Millisecond</span>
+		<span class="n">max</span>    <span class="o">=</span> <span class="m">5</span> <span class="o">*</span> <span class="n">time</span><span class="o">.</span><span class="n">Second</span>
+		<span class="n">factor</span> <span class="o">=</span> <span class="m">2</span>
+	<span class="p">)</span>
+	<span class="n">duration</span> <span class="o">:=</span> <span class="n">base</span>
+	<span class="c">// Responsible for checking limits in resolv.conf</span>
+	<span class="c">// The limits do not have anything to do with individual pods</span>
+	<span class="c">// Since this is called in syncLoop, we don't need to call it anywhere else</span>
+	<span class="k">if</span> <span class="n">kl</span><span class="o">.</span><span class="n">dnsConfigurer</span> <span class="o">!=</span> <span class="no">nil</span> <span class="o">&amp;&amp;</span> <span class="n">kl</span><span class="o">.</span><span class="n">dnsConfigurer</span><span class="o">.</span><span class="n">ResolverConfig</span> <span class="o">!=</span> <span class="s">""</span> <span class="p">{</span>
+		<span class="n">kl</span><span class="o">.</span><span class="n">dnsConfigurer</span><span class="o">.</span><span class="n">CheckLimitsForResolvConf</span><span class="p">()</span>
+	<span class="p">}</span>
+
+	<span class="k">for</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">kl</span><span class="o">.</span><span class="n">runtimeState</span><span class="o">.</span><span class="n">runtimeErrors</span><span class="p">();</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+			<span class="n">klog</span><span class="o">.</span><span class="n">ErrorS</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="s">"Skipping pod synchronization"</span><span class="p">)</span>
+			<span class="c">// exponential backoff</span>
+			<span class="n">time</span><span class="o">.</span><span class="n">Sleep</span><span class="p">(</span><span class="n">duration</span><span class="p">)</span>
+			<span class="n">duration</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">Duration</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">Min</span><span class="p">(</span><span class="kt">float64</span><span class="p">(</span><span class="n">max</span><span class="p">),</span> <span class="n">factor</span><span class="o">*</span><span class="kt">float64</span><span class="p">(</span><span class="n">duration</span><span class="p">)))</span>
+			<span class="k">continue</span>
+		<span class="p">}</span>
+		<span class="c">// reset backoff if we have a success</span>
+		<span class="n">duration</span> <span class="o">=</span> <span class="n">base</span>
+
+		<span class="n">kl</span><span class="o">.</span><span class="n">syncLoopMonitor</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">kl</span><span class="o">.</span><span class="n">clock</span><span class="o">.</span><span class="n">Now</span><span class="p">())</span>
+		<span class="k">if</span> <span class="o">!</span><span class="n">kl</span><span class="o">.</span><span class="n">syncLoopIteration</span><span class="p">(</span><span class="n">updates</span><span class="p">,</span> <span class="n">handler</span><span class="p">,</span> <span class="n">syncTicker</span><span class="o">.</span><span class="n">C</span><span class="p">,</span> <span class="n">housekeepingTicker</span><span class="o">.</span><span class="n">C</span><span class="p">,</span> <span class="n">plegCh</span><span class="p">)</span> <span class="p">{</span>
+			<span class="k">break</span>
+		<span class="p">}</span>
+		<span class="n">kl</span><span class="o">.</span><span class="n">syncLoopMonitor</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">kl</span><span class="o">.</span><span class="n">clock</span><span class="o">.</span><span class="n">Now</span><span class="p">())</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+</pre></table></code></div></div><p>Here, <code class="language-plaintext highlighter-rouge">updates</code> is the channel to receive pod update, it will be passed to <code class="language-plaintext highlighter-rouge">syncLoopIteration</code>, and there all the pod related events are processed.</p><h2 id="2-observe-how-a-pod-is-created"><span class="mr-2">2. Observe how a pod is created</span><a href="#2-observe-how-a-pod-is-created" class="anchor text-muted"><i class="fas fa-hashtag"></i></a></h2></h2><p>Next, we first set a break point at <code class="language-plaintext highlighter-rouge">syncLoopIteration</code>:</p><div class="language-console highlighter-rouge"><div class="code-header"> <span data-label-text="Console"><i class="fas fa-code small"></i></span> <button aria-label="copy" data-title-succeed="Copied!"><i class="far fa-clipboard"></i></button></div><div class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre><td class="rouge-code"><pre><span class="go">
+(dlv) b b HandlePodAdditions
+Breakpoint 7 (enabled) at 0x3725cea for k8s.io/kubernetes/pkg/kubelet.(*Kubelet).HandlePodAdditions() ./_output/local/go/src/k8s.io/kubernetes/pkg/kubelet/kubelet.go:2204 (0)
+
+</span></pre></table></code></div></div><p>Then we are ready to go. After <code class="language-plaintext highlighter-rouge">c</code> command, you will see lots of logs.</p><div class="language-console highlighter-rouge"><div class="code-header"> <span data-label-text="Console"><i class="fas fa-code small"></i></span> <button aria-label="copy" data-title-succeed="Copied!"><i class="far fa-clipboard"></i></button></div><div class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+</pre><td class="rouge-code"><pre><span class="go">(dlv) c
+
+</span><span class="c">...
+</span><span class="go">d-bpjkz" containerName="coredns"
+I0401 12:21:21.597873   22459 kubelet_pods.go:1076] "Clean up pod workers for terminated pods"
+I0401 12:21:21.597923   22459 kubelet_pods.go:1105] "Clean up probes for terminating and terminated pods"
+I0401 12:21:21.604405   22459 kubelet_pods.go:1142] "Clean up orphaned pod statuses"
+I0401 12:21:21.610547   22459 kubelet_pods.go:1161] "Clean up orphaned pod directories"
+I0401 12:21:21.610831   22459 kubelet_pods.go:1172] "Clean up orphaned mirror pods"
+I0401 12:21:21.610858   22459 kubelet_pods.go:1179] "Clean up orphaned pod cgroups"
+</span><span class="c">...
+</span><span class="go">
+</span></pre></table></code></div></div><p>Now open another terminal, and set the KUBECONFIG. after that, we create a deployment:</p><div class="language-console highlighter-rouge"><div class="code-header"> <span data-label-text="Console"><i class="fas fa-code small"></i></span> <button aria-label="copy" data-title-succeed="Copied!"><i class="far fa-clipboard"></i></button></div><div class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre><td class="rouge-code"><pre><span class="go"> kubectl apply -f https://k8s.io/examples/application/simple_deployment.yaml
+  
+deployment.apps/nginx-deployment created
+</span></pre></table></code></div></div><p>Then go back to the debug console, we can see:</p><pre><code class="language-consle">  2202: // HandlePodAdditions is the callback in SyncHandler for pods being added from
+  2203: // a config source.
+=&gt;2204: func (kl *Kubelet) HandlePodAdditions(pods []*v1.Pod) {
+  2205:         start := kl.clock.Now()
+  2206:         sort.Sort(sliceutils.PodsByCreationTime(pods))
+  2207:         for _, pod := range pods {
+  2208:                 existingPods := kl.podManager.GetPods()
+  2209:                 // Always add the pod to the pod manager. Kubelet relies on the pod
+</code></pre><p>However, to create a pod, it is not as easy as just call some function and a pod is created there. The process is really really complex. Below is just a summary of the processes. We will stop here for this post. Interested readers can follow the source code and dig more details.</p></div><div class="post-tail-wrapper text-muted"><div class="post-meta mb-3"> <i class="far fa-folder-open fa-fw mr-1"></i> <a href='/categories/kubernetes/'>Kubernetes</a>, <a href='/categories/source-code/'>Source Code</a></div><div class="post-tags"> <i class="fa fa-tags fa-fw mr-1"></i> <a href="/tags/kubernetes/" class="post-tag no-text-decoration" >kubernetes</a> <a href="/tags/debug/" class="post-tag no-text-decoration" >debug</a> <a href="/tags/source-code/" class="post-tag no-text-decoration" >source code</a></div><div class="post-tail-bottom d-flex justify-content-between align-items-center mt-3 pt-5 pb-2"><div class="license-wrapper"> This post is licensed under <a href="https://creativecommons.org/licenses/by/4.0/"> CC BY 4.0 </a> by the author.</div><div class="share-wrapper"> <span class="share-label text-muted mr-1">Share</span> <span class="share-icons"> <a href="https://twitter.com/intent/tweet?text=How+to+Debug+Kubernetes+Source+Code%3F+-+Hulua&url=https%3A%2F%2Fyywe.github.io%2Fposts%2Fhow-to-debug-k8s-sourceCode%2F" data-toggle="tooltip" data-placement="top" title="Twitter" target="_blank" rel="noopener" aria-label="Twitter"> <i class="fa-fw fab fa-twitter"></i> </a> <a href="https://www.facebook.com/sharer/sharer.php?title=How+to+Debug+Kubernetes+Source+Code%3F+-+Hulua&u=https%3A%2F%2Fyywe.github.io%2Fposts%2Fhow-to-debug-k8s-sourceCode%2F" data-toggle="tooltip" data-placement="top" title="Facebook" target="_blank" rel="noopener" aria-label="Facebook"> <i class="fa-fw fab fa-facebook-square"></i> </a> <a href="https://t.me/share/url?url=https%3A%2F%2Fyywe.github.io%2Fposts%2Fhow-to-debug-k8s-sourceCode%2F&text=How+to+Debug+Kubernetes+Source+Code%3F+-+Hulua" data-toggle="tooltip" data-placement="top" title="Telegram" target="_blank" rel="noopener" aria-label="Telegram"> <i class="fa-fw fab fa-telegram"></i> </a> <i id="copy-link" class="fa-fw fas fa-link small" data-toggle="tooltip" data-placement="top" title="Copy link" data-title-succeed="Link copied successfully!"> </i> </span></div></div></div><script> $(function () { /*Get likes count*/ /*Only one element meet the condition thus safe to do so*/ var elemID = null; $(".num_of_likes").map(function () { elemID = $(this).attr("id") }); $.ajax({ url: 'https://my-api-service-344803.uc.r.appspot.com/apis/data/countlikes', type: 'GET', data: { "pids": [elemID] }, traditional: true, success: function (data) { $.each(data, function (key, val) { $('#' + key).text(val) }) }, error: function (xhr, textStatus) { console.log('error in ajax'); console.log(xhr); console.log(textStatus); } }); /*Get page visit count*/ var pageUrl = "/posts/how-to-debug-k8s-sourceCode/"; $.ajax({ url: 'https://my-api-service-344803.uc.r.appspot.com/apis/pageviews', type: 'GET', data: { "path": pageUrl}, dataType: "json", success: function (data) { /*Due to history reason, url upper/lower case are different { "/posts/Go-Concurrency-Stop-Signal-And-Timeout/": 12, "/posts/go-concurrency-stop-signal-and-timeout/": 7 }, thus here justify*/ $.each(data, function (key, val) { if (key === pageUrl) { $('#mypv').text(val) } }) }, error: function (xhr, textStatus) { console.log('error in ajax'); console.log(xhr); console.log(textStatus); } }); /*Get IP address*/ var ipAddr = null; $.getJSON('https://api.db-ip.com/v2/free/self', function (data) { /* console.log(JSON.stringify(data, null, 2)); */ ipAddr = data.ipAddress }); /*Bind like button with click event*/ $('#thumbsupbtn').click(function () { if (ipAddr !== null && elemID !== null) { $.ajax({ url: 'https://my-api-service-344803.uc.r.appspot.com/apis/data/likeaction', type: 'POST', dataType: "json", contentType: "application/json; charset=utf-8", data: JSON.stringify({ "pid": elemID, "ip": ipAddr}), traditional: true, success: function (data) { $('#'+elemID).text(data.likenumber) }, error: function (xhr, textStatus) { console.log('error in ajax'); console.log(xhr); console.log(textStatus); } }) } }); }); </script></div></div><div id="panel-wrapper" class="col-xl-3 pl-2 text-muted"><div class="access"><div id="access-lastmod" class="post"><div class="panel-heading">Recently Updated</div><ul class="post-content pl-0 pb-1 ml-1 mt-2"><li><a href="/posts/go-concurrency-write-concurrent-programs/">Go Concurrency - Write Concurrent Programs</a><li><a href="/posts/kubernetes-replicatset-controller/">Kubernetes ReplicaSet Controller Design Principle</a><li><a href="/posts/how-to-traverse-trees-in-rust/">How to Traverse Trees in Rust</a><li><a href="/posts/how-to-persist-your-ssh-session-in-remote-server/">How to Persist Your SSH Session in Remote Server</a><li><a href="/posts/a-better-way-to-debug-tidb-source-code/">A Better Way to Debug TiDB Source Code</a></ul></div><div id="access-tags"><div class="panel-heading">Trending Tags</div><div class="d-flex flex-wrap mt-3 mb-1 mr-3"> <a class="post-tag" href="/tags/concurrency/">concurrency</a> <a class="post-tag" href="/tags/debug/">debug</a> <a class="post-tag" href="/tags/go/">go</a> <a class="post-tag" href="/tags/goroutine/">goroutine</a> <a class="post-tag" href="/tags/kubernetes/">kubernetes</a> <a class="post-tag" href="/tags/source-code/">source code</a> <a class="post-tag" href="/tags/development-environment/">development environment</a> <a class="post-tag" href="/tags/linux/">linux</a> <a class="post-tag" href="/tags/rust/">rust</a> <a class="post-tag" href="/tags/tidb/">TiDB</a></div></div></div><script src="https://cdn.jsdelivr.net/gh/afeld/bootstrap-toc@1.0.1/dist/bootstrap-toc.min.js"></script><div id="toc-wrapper" class="pl-0 pr-4 mb-5"><div class="panel-heading pl-3 pt-2 mb-2">Contents</div><nav id="toc" data-toggle="toc"></nav></div></div></div><div class="row"><div class="col-12 col-lg-11 col-xl-8"><div id="tail-wrapper" class="pl-1 pr-1 pl-sm-2 pr-sm-2 pl-md-4 pr-md-4"><div id="related-posts" class="mt-5 mb-2 mb-sm-4"><h3 class="pt-2 mt-1 mb-4 ml-1" data-toc-skip>Further Reading</h3><div class="card-deck mb-4"><div class="card"> <a href="/posts/kubernetes-replicatset-controller/"><div class="card-body"> <em class="timeago small" data-ts="1651064100" > 2022-04-27 </em><h3 class="pt-0 mt-1 mb-3" data-toc-skip>Kubernetes ReplicaSet Controller Design Principle</h3><div class="text-muted small"><p> In kubernetes, controllers play a vital role to orchestrate resources. For beginners learning kubernetes, we need to understand what are controllers. In short, controllers manipulate resources. In ...</p></div></div></a></div><div class="card"> <a href="/posts/a-better-way-to-debug-tidb-source-code/"><div class="card-body"> <em class="timeago small" data-ts="1649422500" > 2022-04-08 </em><h3 class="pt-0 mt-1 mb-3" data-toc-skip>A Better Way to Debug TiDB Source Code</h3><div class="text-muted small"><p> TiDB is an interesting SQL database written in Golang. One major difference compared with popular exsiting relational databases is that in TiDB storage is separated as an independant runtime. The d...</p></div></div></a></div><div class="card"> <a href="/posts/how-to-persist-your-ssh-session-in-remote-server/"><div class="card-body"> <em class="timeago small" data-ts="1690635300" > 2023-07-29 </em><h3 class="pt-0 mt-1 mb-3" data-toc-skip>How to Persist Your SSH Session in Remote Server</h3><div class="text-muted small"><p> One of the major advatanage of developing server side applications in your local enviornment is that the terminal session never gets disconnected. The session is always available. 1 2 3 4 5 6 7 8 ...</p></div></div></a></div></div></div><div class="post-navigation d-flex justify-content-between"> <a href="/posts/go-concurrency-stop-signal-and-timeout/" class="btn btn-outline-primary" prompt="Older"><p>Go Concurrency - Stop Signal and Timeout</p></a> <a href="/posts/a-better-way-to-debug-tidb-source-code/" class="btn btn-outline-primary" prompt="Newer"><p>A Better Way to Debug TiDB Source Code</p></a></div><div id="disqus_thread" class="pt-2 pb-2"><p class="text-center text-muted small"> Comments powered by <a href="https://disqus.com/">Disqus</a>.</p></div><script type="text/javascript"> var disqus_config = function () { this.page.url = 'https://yywe.github.io/posts/how-to-debug-k8s-sourceCode/'; this.page.identifier = '/posts/how-to-debug-k8s-sourceCode/'; }; /* Lazy loading */ var disqus_observer = new IntersectionObserver(function (entries) { if(entries[0].isIntersecting) { (function () { var d = document, s = d.createElement('script'); s.src = 'https://hulua-tech-blog.disqus.com/embed.js'; s.setAttribute('data-timestamp', +new Date()); (d.head || d.body).appendChild(s); })(); disqus_observer.disconnect(); } }, { threshold: [0] }); disqus_observer.observe(document.querySelector('#disqus_thread')); /* Auto switch theme */ function reloadDisqus() { /* Disqus hasn't been loaded */ if (typeof DISQUS === "undefined") { return; } if (document.readyState == 'complete') { DISQUS.reset({ reload: true, config: disqus_config }); } } const modeToggle = document.querySelector(".mode-toggle"); if (typeof modeToggle !== "undefined") { /* modeToggle.addEventListener('click', reloadDisqus); // not pretty for 'color-scheme' */ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', reloadDisqus); } </script></div></div></div><footer class="d-flex w-100 justify-content-center"><div class="d-flex justify-content-between align-items-center text-muted"><div class="footer-left"><p class="mb-0"> <span>Welcome, the site has been visited <em id="my_pv_from_google" class="pageviews"> <i class="fas fa-spinner fa-spin fa-fw"></i> </em> times.</p><p class="mb-0"> © 2023 <a href="https://twitter.com/#">Hulua</a>. <span data-toggle="tooltip" data-placement="top" title="Except where otherwise noted, the blog posts on this site are licensed under the Creative Commons Attribution 4.0 International (CC BY 4.0) License by the author.">Some rights reserved.</span></p></div><div class="footer-right"><p class="mb-0"> Powered by <a href="https://jekyllrb.com" target="_blank" rel="noopener">Jekyll</a> with <a href="https://github.com/cotes2020/jekyll-theme-chirpy" target="_blank" rel="noopener">Chirpy</a> theme.</p></div></div></footer><script> $(function () { /*Get approximate page visit count using path */ pageUrlroot = "/"; $.ajax({ url: 'https://my-api-service-344803.uc.r.appspot.com/apis/pageviews', type: 'GET', data: { "path": "/"}, dataType: "json", success: function (data) { $.each(data, function (key, val) { if (key === pageUrlroot) { $('#my_pv_from_google').text(val) } }) }, error: function (xhr, textStatus) { console.log('error in ajax'); console.log(xhr); console.log(textStatus); } }); }); </script></div><div id="search-result-wrapper" class="d-flex justify-content-center unloaded"><div class="col-12 col-sm-11 post-content"><div id="search-hints"><div id="access-tags"><div class="panel-heading">Trending Tags</div><div class="d-flex flex-wrap mt-3 mb-1 mr-3"> <a class="post-tag" href="/tags/concurrency/">concurrency</a> <a class="post-tag" href="/tags/debug/">debug</a> <a class="post-tag" href="/tags/go/">go</a> <a class="post-tag" href="/tags/goroutine/">goroutine</a> <a class="post-tag" href="/tags/kubernetes/">kubernetes</a> <a class="post-tag" href="/tags/source-code/">source code</a> <a class="post-tag" href="/tags/development-environment/">development environment</a> <a class="post-tag" href="/tags/linux/">linux</a> <a class="post-tag" href="/tags/rust/">rust</a> <a class="post-tag" href="/tags/tidb/">TiDB</a></div></div></div><div id="search-results" class="d-flex flex-wrap justify-content-center text-muted mt-3"></div></div></div></div><div id="mask"></div><a id="back-to-top" href="#" aria-label="back-to-top" class="btn btn-lg btn-box-shadow" role="button"> <i class="fas fa-angle-up"></i> </a> <script src="https://cdn.jsdelivr.net/npm/simple-jekyll-search@1.10.0/dest/simple-jekyll-search.min.js"></script> <script> SimpleJekyllSearch({ searchInput: document.getElementById('search-input'), resultsContainer: document.getElementById('search-results'), json: '/assets/js/data/search.json', searchResultTemplate: '<div class="pl-1 pr-1 pl-sm-2 pr-sm-2 pl-lg-4 pr-lg-4 pl-xl-0 pr-xl-0"> <a href="{url}">{title}</a><div class="post-meta d-flex flex-column flex-sm-row text-muted mt-1 mb-1"> {categories} {tags}</div><p>{snippet}</p></div>', noResultsText: '<p class="mt-5">Oops! No result founds.</p>', templateMiddleware: function(prop, value, template) { if (prop === 'categories') { if (value === '') { return `${value}`; } else { return `<div class="mr-sm-4"><i class="far fa-folder fa-fw"></i>${value}</div>`; } } if (prop === 'tags') { if (value === '') { return `${value}`; } else { return `<div><i class="fa fa-tag fa-fw"></i>${value}</div>`; } } } }); </script> <script src="https://cdn.jsdelivr.net/combine/npm/magnific-popup@1/dist/jquery.magnific-popup.min.js,npm/lozad/dist/lozad.min.js,npm/clipboard@2/dist/clipboard.min.js"></script> <script src="https://cdn.jsdelivr.net/combine/npm/dayjs@1/dayjs.min.js,npm/dayjs@1/locale/en.min.js,npm/dayjs@1/plugin/relativeTime.min.js,npm/dayjs@1/plugin/localizedFormat.min.js"></script> <script defer src="/assets/js/dist/post.min.js"></script> <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script> <script defer src="/app.js"></script> <script defer src="https://www.googletagmanager.com/gtag/js?id=G-SL395S6583"></script> <script> document.addEventListener("DOMContentLoaded", function(event) { window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-SL395S6583'); }); </script>
